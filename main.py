@@ -2,29 +2,33 @@ import numpy as np
 import matplotlib.pyplot as plt
 from random import randint
 
+from numpy.compat import npy_load_module
+
+
 def generate_ecg_single_signal():
     # Generación de datos aleatorios de los puntos clave del ECG y el tiempo total de duracion del latido
-    initial_transition_time = 20 # ¿quitar?
-    pr_section_time = randint(130, 200)
     q_wave_time = randint(20, 30)
-    p_wave_time = randint(80,120)
-    pr_interlude_time = pr_section_time - p_wave_time
     s_wave_time = randint(15, 20)
     r_wave_time = randint(60, (119 - (q_wave_time + s_wave_time))) # Variable que debe variar entre 60 y 119 (ya que qrs no debe superar este valor) - los otros valores del complejo
+    qrs_time = q_wave_time + r_wave_time + s_wave_time  # Tiempo total del complejo QRS
+
+    p_wave_time = randint(80, 120)
+    pr_section_time = randint(130, 200)
+    pr_interlude_time = pr_section_time - p_wave_time
+
     st_section_time = randint(50, 150)
     t_wave_time = randint(130, 150)
-    qt_section_time = randint(s_wave_time + r_wave_time + st_section_time + t_wave_time, 450)
+    qt_section_time = qrs_time + st_section_time + t_wave_time  # Tiempo total del segmento QT
 
-    partial_time = initial_transition_time + pr_section_time + qt_section_time
-    total_time = randint(max(partial_time,600), 1000) # Tiempo que dura el latido calculado
-    print(total_time)
+
+    partial_time = pr_section_time + qt_section_time
+    total_time = randint(max(partial_time, 600), 1000)  # Tiempo que dura el latido calculado
 
     # Definición de los puntos en ambos ejes
-    x = np.arange(0, total_time, 1)  # Tiempo en milisegundos
+    x = np.arange(0, partial_time, 1)  # Tiempo en milisegundos
     y = np.zeros(len(x))
-
     # 1. Transición Inicial
-    start = initial_transition_time
+    start = 0
     y[:start] = 0  # Línea plana en 0 mV
 
     # 2. Onda P
@@ -76,7 +80,8 @@ def generate_ecg_single_signal():
     t_wave = 0.3 * np.sin(np.pi * t_time / t_wave_time)
     y[t_start:t_start + t_wave_time] = t_wave
 
-    return y, total_time
+    return y, partial_time, total_time,r_end
+
 
 def generate_ecg_one_minute_signal():
     total_ecg_time = 60000  # Duración del ECG sintetico
@@ -84,22 +89,29 @@ def generate_ecg_one_minute_signal():
     accumulated_time = 0  # Tiempo acumulado en milisegundos
     completed_beats = 0
 
-    beat, time_beat = generate_ecg_single_signal() # Se calcula un solo latido con el que se generara todo el electrocardiograma
-
+    first_beat, parcial, time_beat, r1 = generate_ecg_single_signal() # Se calcula un solo latido con el que se generara todo el electrocardiograma
+    ecg_signal = np.concatenate((ecg_signal,first_beat))
+    accumulated_time += parcial
+    rr = time_beat
     # Generar latidos hasta aproximarse a los 60 segundos
     while accumulated_time < total_ecg_time:
-
-        # Si se excede el tiempo del que se quiere el electro, se calcula la parte parcial a mostrar; sino se muestra el latido completo
-        if accumulated_time + time_beat > total_ecg_time:
-            duracion_restante = total_ecg_time - accumulated_time
-            beat = beat[:duracion_restante]  # Ajustar el último latido
-            accumulated_time += duracion_restante
-        else:
-            accumulated_time += time_beat
-            completed_beats+=1
-
-        ecg_signal = np.concatenate((ecg_signal, beat))
-
+        beat, parcial_pos ,time_beat_pos, r_pos = generate_ecg_single_signal()  # Se calcula un solo latido con el que se generara todo el electrocardiograma
+        time_0 = rr - ((parcial -r1) + r_pos)
+        intento = np.zeros(time_0)
+        if (((parcial -r1) + r_pos + time_0)) == rr:
+            print((parcial -r1) + r_pos + time_0)
+            intento = np.concatenate((intento,beat))
+            # Si se excede el tiempo del que se quiere el electro, se calcula la parte parcial a mostrar; sino se muestra el latido completo
+            if accumulated_time + rr > total_ecg_time:
+                duracion_restante = total_ecg_time - accumulated_time
+                intento = intento[:duracion_restante]
+                accumulated_time += duracion_restante
+            else:
+                accumulated_time += parcial_pos + time_0
+                completed_beats+=1
+            ecg_signal = np.concatenate((ecg_signal, intento))
+            parcial = parcial_pos
+            r1 = r_pos
     x = np.arange(0, len(ecg_signal), 1)  # Tiempo en milisegundos
 
 
