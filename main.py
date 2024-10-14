@@ -1,32 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from random import randint
+from random import randint, choice
 
 from numpy.compat import npy_load_module
 
-
-def generate_ecg_single_signal():
-    # Generación de datos aleatorios de los puntos clave del ECG y el tiempo total de duracion del latido
-    q_wave_time = randint(20, 30)
-    s_wave_time = randint(15, 20)
-    r_wave_time = randint(60, (119 - (q_wave_time + s_wave_time))) # Variable que debe variar entre 60 y 119 (ya que qrs no debe superar este valor) - los otros valores del complejo
-    qrs_time = q_wave_time + r_wave_time + s_wave_time  # Tiempo total del complejo QRS
-
-    p_wave_time = randint(80, 120)
-    pr_section_time = randint(130, 200)
-    pr_interlude_time = pr_section_time - p_wave_time
-
-    st_section_time = randint(50, 150)
-    t_wave_time = randint(130, 150)
-    qt_section_time = qrs_time + st_section_time + t_wave_time  # Tiempo total del segmento QT
-
-
-    partial_time = pr_section_time + qt_section_time
-    total_time = randint(max(partial_time, 600), 1000)  # Tiempo que dura el latido calculado
-
-    # Definición de los puntos en ambos ejes
-    x = np.arange(0, partial_time, 1)  # Tiempo en milisegundos
-    y = np.zeros(len(x))
+def graph_funtion(y,q_wave_time,s_wave_time,r_wave_time,p_wave_time,pr_interlude_time,st_section_time,t_wave_time):
     # 1. Transición Inicial
     start = 0
     y[:start] = 0  # Línea plana en 0 mV
@@ -80,8 +58,66 @@ def generate_ecg_single_signal():
     t_wave = 0.3 * np.sin(np.pi * t_time / t_wave_time)
     y[t_start:t_start + t_wave_time] = t_wave
 
+    return r_end
+
+def generate_ecg_single_signal():
+    # Generación de datos aleatorios de los puntos clave del ECG y el tiempo total de duracion del latido
+    q_wave_time = randint(20, 30)
+    s_wave_time = randint(15, 20)
+    r_wave_time = randint(60, (119 - (q_wave_time + s_wave_time))) # Variable que debe variar entre 60 y 119 (ya que qrs no debe superar este valor) - los otros valores del complejo
+    qrs_time = q_wave_time + r_wave_time + s_wave_time  # Tiempo total del complejo QRS
+
+    p_wave_time = randint(80, 120)
+    pr_section_time = randint(130, 200)
+    pr_interlude_time = pr_section_time - p_wave_time
+
+    st_section_time = randint(50, 150)
+    t_wave_time = randint(130, 150)
+    qt_section_time = qrs_time + st_section_time + t_wave_time  # Tiempo total del segmento QT
+
+
+    partial_time = pr_section_time + qt_section_time
+    total_time = randint(max(partial_time, 600), 1000)  # Tiempo que dura el latido calculado
+
+    # Definición de los puntos en ambos ejes
+    x = np.arange(0, partial_time, 1)  # Tiempo en milisegundos
+    y = np.zeros(len(x))
+    r_end = graph_funtion(y,q_wave_time, s_wave_time, r_wave_time, p_wave_time, pr_interlude_time, st_section_time, t_wave_time)
+
     return y, partial_time, total_time,r_end
 
+def generate_ecg_rr_based(total_time):
+    # Porcentajes aproximados basados en proporciones típicas de un ECG
+    p_wave_percentage = 0.15  # 10% del RR
+    pr_section_percentage = 0.2  # 20% del RR (incluye onda P)
+    q_wave_percentage = 0.05  # 5% del RR
+    r_wave_percentage = 0.15  # 15% del RR
+    s_wave_percentage = 0.05  # 5% del RR
+    st_section_percentage = 0.10  # 20% del RR
+    t_wave_percentage = 0.2  # 15% del RR
+
+    # Parametros porcentuales a rr pasados a int
+    p_wave_time = int(p_wave_percentage * total_time)
+    pr_section_time = int(pr_section_percentage * total_time)
+    q_wave_time = int(q_wave_percentage * total_time)
+    r_wave_time = int(r_wave_percentage * total_time)
+    s_wave_time = int(s_wave_percentage * total_time)
+    st_section_time = int(st_section_percentage * total_time)
+    t_wave_time = int(t_wave_percentage * total_time)
+    pr_interlude_time = pr_section_time - p_wave_time
+
+    # Tiempo total del segmento QT (QRS + ST + T)
+    qrs_time = q_wave_time + r_wave_time + s_wave_time
+    qt_section_time = qrs_time + st_section_time + t_wave_time
+
+    # Definición de los puntos en ambos ejes
+    partial_time = pr_section_time + qt_section_time  # Tiempo parcial del ECG (excluye la porción final plana)
+    x = np.arange(0, total_time, 1)  # Tiempo en milisegundos
+    y = np.zeros(len(x))
+
+    r_end = graph_funtion(y,q_wave_time,s_wave_time,r_wave_time,p_wave_time,pr_interlude_time,st_section_time,t_wave_time)
+
+    return y, partial_time, total_time, r_end
 
 def generate_ecg_one_minute_signal():
     total_ecg_time = 60000  # Duración del ECG sintetico
@@ -92,30 +128,75 @@ def generate_ecg_one_minute_signal():
     first_beat, parcial, time_beat, r1 = generate_ecg_single_signal() # Se calcula un solo latido con el que se generara todo el electrocardiograma
     ecg_signal = np.concatenate((ecg_signal,first_beat))
     accumulated_time += parcial
+    completed_beats +=1
     rr = time_beat
     # Generar latidos hasta aproximarse a los 60 segundos
-    while accumulated_time < total_ecg_time:
+    while completed_beats < 10:
         beat, parcial_pos ,time_beat_pos, r_pos = generate_ecg_single_signal()  # Se calcula un solo latido con el que se generara todo el electrocardiograma
         time_0 = rr - ((parcial -r1) + r_pos)
-        intento = np.zeros(time_0)
+        if time_0 < 0:
+            time_0 = 0
+        flat_section = np.zeros(time_0)
         if (((parcial -r1) + r_pos + time_0)) == rr:
-            print((parcial -r1) + r_pos + time_0)
-            intento = np.concatenate((intento,beat))
+            flat_section = np.concatenate((flat_section,beat))
             # Si se excede el tiempo del que se quiere el electro, se calcula la parte parcial a mostrar; sino se muestra el latido completo
             if accumulated_time + rr > total_ecg_time:
                 duracion_restante = total_ecg_time - accumulated_time
-                intento = intento[:duracion_restante]
+                flat_section = flat_section[:duracion_restante]
                 accumulated_time += duracion_restante
             else:
                 accumulated_time += parcial_pos + time_0
                 completed_beats+=1
-            ecg_signal = np.concatenate((ecg_signal, intento))
+            ecg_signal = np.concatenate((ecg_signal, flat_section))
             parcial = parcial_pos
             r1 = r_pos
+    resting_time = accumulated_time
+    resting_beats = completed_beats
+    hr_target = randint(120, 180)
+    print("Objetivo de latidos:",hr_target)
+    hrv = randint(39, 85)
+    rr_target = int(60000 / hr_target)
+
+    while rr - hrv > rr_target and accumulated_time < total_ecg_time:
+        rr -= hrv
+        hrv = randint(39, 85)
+        beat, parcial_pos, time_beat_pos, r_pos = generate_ecg_rr_based(rr)  # Se calcula un solo latido con el que se generara todo el electrocardiograma
+
+        if accumulated_time + rr > total_ecg_time:
+            duracion_restante = total_ecg_time - accumulated_time
+            beat = beat[:duracion_restante]  # Ajustar el último latido
+            accumulated_time += duracion_restante
+        else:
+            accumulated_time += rr
+            completed_beats += 1
+
+        ecg_signal = np.concatenate((ecg_signal, beat))
+    transition_time = accumulated_time
+    transition_beats = completed_beats - resting_beats
+    print("Latidos de transicion:",transition_beats)
+    rr = rr_target
+    while accumulated_time < total_ecg_time:
+        hrv = randint(39, 85)
+        hrv = choice([-hrv,hrv])
+        rr_aux = rr
+        rr += hrv
+        if rr_target - 50 <= rr <= rr_target + 50:
+            beat, parcial_pos, time_beat_pos, r_pos = generate_ecg_rr_based(rr)  # Se calcula un solo latido con el que se generara todo el electrocardiograma
+            if accumulated_time + rr > total_ecg_time:
+                duracion_restante = total_ecg_time - accumulated_time
+                beat = beat[:duracion_restante]  # Ajustar el último latido
+                accumulated_time += duracion_restante
+            else:
+                accumulated_time += rr
+                completed_beats += 1
+            ecg_signal = np.concatenate((ecg_signal, beat))
+        else:
+            rr = rr_aux
     x = np.arange(0, len(ecg_signal), 1)  # Tiempo en milisegundos
-
-
-    return x, ecg_signal,completed_beats
+    movement_beats = completed_beats - (transition_beats + resting_beats)
+    print("Latidos en moviemiento:", movement_beats)
+    movement_time = accumulated_time
+    return x, ecg_signal,completed_beats,resting_time,transition_time,movement_time
 
 def ms_to_min(milisegundos):
     # MS --> S
@@ -128,12 +209,18 @@ def ms_to_min(milisegundos):
 
 if __name__ == "__main__":
     # Obtención de los datos a mostrar
-    x, y, lpm = generate_ecg_one_minute_signal()
+    x, y, lpm,resting,transition,movement = generate_ecg_one_minute_signal()
+    print("Latidos totales:",lpm)
 
-    print(lpm)
+    resting_mask = np.arange(movement) < resting
+    transition_mask = (np.arange(movement) >= resting) & (np.arange(movement) < transition)
+    movement_mask = np.arange(movement) >= transition
+
     # Graficar la señal de ECG
     plt.figure(figsize=(20, 5))
-    plt.plot(x / 1000, y)  # El eje X se muestra en segundos aunque se calcule en segundos
+    plt.plot(x[resting_mask] / 1000, y[resting_mask], color='green', label='Resting')  # Fase de descanso
+    plt.plot(x[transition_mask] / 1000, y[transition_mask], color='orange', label='Transition')  # Fase de transición
+    plt.plot(x[movement_mask] / 1000, y[movement_mask], color='red', label='Movement')  # Fase de movimiento
 
     # Etiquetas con el formato MM:SS
     ticks = np.arange(0, 61, 1)  # Etiquetas cada segundo, incluyendo 01:00(por eso se pone 61)
