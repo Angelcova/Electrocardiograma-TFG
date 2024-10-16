@@ -2,7 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 from random import randint, choice
 
-from numpy.compat import npy_load_module
 
 def graph_funtion(y,q_wave_time,s_wave_time,r_wave_time,p_wave_time,pr_interlude_time,st_section_time,t_wave_time):
     # 1. Transición Inicial
@@ -130,6 +129,7 @@ def generate_ecg_one_minute_signal():
     accumulated_time += parcial
     completed_beats +=1
     rr = time_beat
+
     # Generar latidos hasta aproximarse a los 60 segundos
     while completed_beats < 10:
         beat, parcial_pos ,time_beat_pos, r_pos = generate_ecg_single_signal()  # Se calcula un solo latido con el que se generara todo el electrocardiograma
@@ -137,7 +137,7 @@ def generate_ecg_one_minute_signal():
         if time_0 < 0:
             time_0 = 0
         flat_section = np.zeros(time_0)
-        if (((parcial -r1) + r_pos + time_0)) == rr:
+        if ((parcial -r1) + r_pos + time_0)== rr:
             flat_section = np.concatenate((flat_section,beat))
             # Si se excede el tiempo del que se quiere el electro, se calcula la parte parcial a mostrar; sino se muestra el latido completo
             if accumulated_time + rr > total_ecg_time:
@@ -150,6 +150,11 @@ def generate_ecg_one_minute_signal():
             ecg_signal = np.concatenate((ecg_signal, flat_section))
             parcial = parcial_pos
             r1 = r_pos
+
+    flat_section = np.zeros(int(time_0/2))
+    ecg_signal = np.concatenate((ecg_signal,flat_section))
+    accumulated_time += int(time_0/2)
+
     resting_time = accumulated_time
     resting_beats = completed_beats
     hr_target = randint(120, 180)
@@ -218,9 +223,9 @@ if __name__ == "__main__":
 
     # Graficar la señal de ECG
     plt.figure(figsize=(20, 5))
-    plt.plot(x[resting_mask] / 1000, y[resting_mask], color='green', label='Resting')  # Fase de descanso
-    plt.plot(x[transition_mask] / 1000, y[transition_mask], color='orange', label='Transition')  # Fase de transición
-    plt.plot(x[movement_mask] / 1000, y[movement_mask], color='red', label='Movement')  # Fase de movimiento
+    plt.plot(x[resting_mask] / 1000, y[resting_mask], color='green', label='Reposo')  # Fase de descanso
+    plt.plot(x[transition_mask] / 1000, y[transition_mask], color='orange', label='Transición')  # Fase de transición
+    plt.plot(x[movement_mask] / 1000, y[movement_mask], color='red', label='Movimiento')  # Fase de movimiento
 
     # Etiquetas con el formato MM:SS
     ticks = np.arange(0, 61, 1)  # Etiquetas cada segundo, incluyendo 01:00(por eso se pone 61)
@@ -231,6 +236,9 @@ if __name__ == "__main__":
     plt.title("ECG Sintético de 1 Minuto")
     plt.xlabel("Tiempo (MM:SS)")
     plt.ylabel("Voltaje (mV)")
+    plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    plt.xlim(0, 4)  # Limitar el eje X de 0 a 2 segundos
+    plt.tight_layout()  # Ajustar el layout para evitar solapamientos
     plt.grid(True)
     plt.show()
 
