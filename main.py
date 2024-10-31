@@ -124,12 +124,15 @@ def generate_ecg_one_minute_signal():
     accumulated_time = 0  # Tiempo acumulado en milisegundos
     completed_beats = 0
 
+    bpm_grap = []
+    hrv_graph = []
+    start = 0
+
     first_beat, parcial, time_beat, r1 = generate_ecg_single_signal() # Se calcula un solo latido con el que se generara todo el electrocardiograma
     ecg_signal = np.concatenate((ecg_signal,first_beat))
     accumulated_time += parcial
     completed_beats +=1
     rr = time_beat
-
     # Generar latidos hasta aproximarse a los 60 segundos
     while completed_beats < 10:
         beat, parcial_pos ,time_beat_pos, r_pos = generate_ecg_single_signal()  # Se calcula un solo latido con el que se generara todo el electrocardiograma
@@ -139,6 +142,11 @@ def generate_ecg_one_minute_signal():
         flat_section = np.zeros(time_0)
         if ((parcial -r1) + r_pos + time_0)== rr:
             flat_section = np.concatenate((flat_section,beat))
+            bpm_value = int(60000 / (parcial + time_0))
+            bpm_grap.append((start + parcial + time_0, bpm_value))
+
+            hrv_graph.append((start + parcial + time_0,rr-((parcial -r1) + r_pos + time_0)))
+
             # Si se excede el tiempo del que se quiere el electro, se calcula la parte parcial a mostrar; sino se muestra el latido completo
             if accumulated_time + rr > total_ecg_time:
                 duracion_restante = total_ecg_time - accumulated_time
@@ -148,6 +156,7 @@ def generate_ecg_one_minute_signal():
                 accumulated_time += parcial_pos + time_0
                 completed_beats+=1
             ecg_signal = np.concatenate((ecg_signal, flat_section))
+            start = start + parcial + time_0
             parcial = parcial_pos
             r1 = r_pos
 
@@ -157,15 +166,59 @@ def generate_ecg_one_minute_signal():
 
     resting_time = accumulated_time
     resting_beats = completed_beats
-    hr_target = randint(120, 180)
+
+    stress_status_list = ["muy alto","alto","medio","bajo","ninguno"]
+    stress_status = choice([stress_status_list[0],stress_status_list[1],stress_status_list[2],stress_status_list[3],stress_status_list[4]])
+    print(stress_status)
+    hr_min = 0
+    hr_max = 0
+    hrv_min = 0
+    hrv_max = 0
+
+    if stress_status == "muy alto":
+        hr_min = 170
+        hr_max = 180
+        hrv_min = 95
+        hrv_max = 110
+
+    elif stress_status == "alto":
+        hr_min = 150
+        hr_max = 169
+        hrv_min = 80
+        hrv_max = 100
+
+    elif stress_status == "medio":
+        hr_min = 140
+        hr_max = 149
+        hrv_min = 55
+        hrv_max = 75
+
+    elif stress_status == "bajo":
+        hr_min = 120
+        hr_max = 139
+        hrv_min = 45
+        hrv_max = 65
+
+    elif stress_status == "ninguno":
+        hr_min = 120
+        hr_max = 180
+        hrv_min = 39
+        hrv_max = 85
+
+    hr_target = randint(hr_min, hr_max)
     print("Objetivo de latidos:",hr_target)
-    hrv = randint(39, 85)
+    hrv = randint(hrv_min, hrv_max)
     rr_target = int(60000 / hr_target)
 
     while rr - hrv > rr_target and accumulated_time < total_ecg_time:
         rr -= hrv
-        hrv = randint(39, 85)
+        hrv = randint(hrv_min, hrv_max)
         beat, parcial_pos, time_beat_pos, r_pos = generate_ecg_rr_based(rr)  # Se calcula un solo latido con el que se generara todo el electrocardiograma
+
+        bpm_value = int(60000 / time_beat_pos)
+        bpm_grap.append((start + time_beat_pos, bpm_value))
+
+        hrv_graph.append((start + time_beat_pos,hrv))
 
         if accumulated_time + rr > total_ecg_time:
             duracion_restante = total_ecg_time - accumulated_time
@@ -174,19 +227,53 @@ def generate_ecg_one_minute_signal():
         else:
             accumulated_time += rr
             completed_beats += 1
-
+        start = start + time_beat_pos
         ecg_signal = np.concatenate((ecg_signal, beat))
+
     transition_time = accumulated_time
     transition_beats = completed_beats - resting_beats
     print("Latidos de transicion:",transition_beats)
     rr = rr_target
+    fluctuacion = 0
+
+    if stress_status == "muy alto":
+        hrv_min = 20
+        hrv_max = 30
+        fluctuacion = 20
+
+    elif stress_status == "alto":
+        hrv_min = 31
+        hrv_max = 44
+        fluctuacion = 35
+
+    elif stress_status == "medio":
+        hrv_min = 45
+        hrv_max = 65
+        fluctuacion = 45
+
+    elif stress_status == "bajo":
+        hrv_min = 55
+        hrv_max = 75
+        fluctuacion = 55
+
+    elif stress_status == "ninguno":
+        hrv_min = 39
+        hrv_max = 85
+        fluctuacion = 55
+
     while accumulated_time < total_ecg_time:
-        hrv = randint(39, 85)
+        hrv = randint(hrv_min, hrv_max)
         hrv = choice([-hrv,hrv])
         rr_aux = rr
         rr += hrv
-        if rr_target - 50 <= rr <= rr_target + 50:
+        if rr_target - fluctuacion <= rr <= rr_target + fluctuacion:
             beat, parcial_pos, time_beat_pos, r_pos = generate_ecg_rr_based(rr)  # Se calcula un solo latido con el que se generara todo el electrocardiograma
+
+            hrv_graph.append((start + time_beat_pos,abs(hrv)))
+
+            bpm_value = int(60000 / time_beat_pos)
+            bpm_grap.append((start + time_beat_pos, bpm_value))
+
             if accumulated_time + rr > total_ecg_time:
                 duracion_restante = total_ecg_time - accumulated_time
                 beat = beat[:duracion_restante]  # Ajustar el último latido
@@ -195,13 +282,20 @@ def generate_ecg_one_minute_signal():
                 accumulated_time += rr
                 completed_beats += 1
             ecg_signal = np.concatenate((ecg_signal, beat))
+            start = start + time_beat_pos
         else:
             rr = rr_aux
+
     x = np.arange(0, len(ecg_signal), 1)  # Tiempo en milisegundos
+    bpm_x = np.arange(0,len(bpm_grap),1)
+    hrv_x = np.arange(0,len(hrv_graph),1)
+
+
     movement_beats = completed_beats - (transition_beats + resting_beats)
     print("Latidos en moviemiento:", movement_beats)
     movement_time = accumulated_time
-    return x, ecg_signal,completed_beats,resting_time,transition_time,movement_time
+
+    return x, ecg_signal,completed_beats,resting_time,transition_time,movement_time,bpm_x,bpm_grap,hrv_x,hrv_graph,resting_beats,transition_beats,movement_beats
 
 def ms_to_min(milisegundos):
     # MS --> S
@@ -214,14 +308,14 @@ def ms_to_min(milisegundos):
 
 if __name__ == "__main__":
     # Obtención de los datos a mostrar
-    x, y, lpm,resting,transition,movement = generate_ecg_one_minute_signal()
+    x, y, lpm,resting,transition,movement,bpm_graph_x,bpm_graph_y,hrv_x,hrv_y,resting_beats,transition_beats,movement_beats = generate_ecg_one_minute_signal()
     print("Latidos totales:",lpm)
 
     resting_mask = np.arange(movement) < resting
     transition_mask = (np.arange(movement) >= resting) & (np.arange(movement) < transition)
     movement_mask = np.arange(movement) >= transition
 
-    # Graficar la señal de ECG
+    # Primer grafico (ECG)
     plt.figure(figsize=(20, 5))
     plt.plot(x[resting_mask] / 1000, y[resting_mask], color='green', label='Reposo')  # Fase de descanso
     plt.plot(x[transition_mask] / 1000, y[transition_mask], color='orange', label='Transición')  # Fase de transición
@@ -237,9 +331,64 @@ if __name__ == "__main__":
     plt.xlabel("Tiempo (MM:SS)")
     plt.ylabel("Voltaje (mV)")
     plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    plt.xlim(0, 4)  # Limitar el eje X de 0 a 2 segundos
-    plt.tight_layout()  # Ajustar el layout para evitar solapamientos
+    plt.xlim(0, 4)  # Zoom para los primeros 4 segundos
+    plt.tight_layout()
     plt.grid(True)
+
+    #Segundo grafico (lpm)
+    plt.figure(figsize=(20,5))
+
+    bpm_graph_x, bpm_graph_y = zip(*bpm_graph_y)  # Descomposicion de las tuplas
+    bpm_graph_x = np.array(bpm_graph_x)
+    bpm_graph_y = np.array(bpm_graph_y)
+    plt.plot(bpm_graph_x / 1000, bpm_graph_y, marker='o', color='blue') #.scatter si solo se quieren los puntos y no las lineas
+
+    #Representacion de los numeros en el grafico
+    for i in range(len(bpm_graph_x)):
+        plt.text(bpm_graph_x[i] / 1000, bpm_graph_y[i], f'{bpm_graph_y[i]:.0f}', fontsize=8, ha='right', va='bottom')
+
+    # Etiquetas con el formato MM:SS
+    ticks = np.arange(0, 61, 1)  # Etiquetas cada segundo, incluyendo 01:00(por eso se pone 61)
+    tick_labels = [ms_to_min(t * 1000) for t in ticks]
+    plt.xticks(ticks, tick_labels)
+
+    # Titulo y etiquetas para cada dimensión
+    plt.title("LPM durante la simulacion")
+    plt.xlabel("Tiempo (MM:SS)")
+    plt.ylabel("Latidos por minuto (lpm)")
+    plt.grid(True)
+
+    # Tercer grafico (HRV)
+    plt.figure(figsize=(20, 5))
+
+    hrv_x, hrv_y = zip(*hrv_y)  # Descomposicion de las tuplas
+    hrv_x = np.array(hrv_x)
+    hrv_y = np.array(hrv_y)
+    plt.plot(hrv_x / 1000, hrv_y, marker='o',
+             color='blue')  # .scatter si solo se quieren los puntos y no las lineas
+
+    # Representacion de los numeros en el grafico
+    for i in range(len(bpm_graph_x)):
+        plt.text(hrv_x[i] / 1000, hrv_y[i], f'{hrv_y[i]:.0f}', fontsize=8, ha='right', va='bottom')
+
+    # Etiquetas con el formato MM:SS
+    ticks = np.arange(0, 61, 1)  # Etiquetas cada segundo, incluyendo 01:00(por eso se pone 61)
+    tick_labels = [ms_to_min(t * 1000) for t in ticks]
+    plt.xticks(ticks, tick_labels)
+
+    # Titulo y etiquetas para cada dimensión
+    plt.title("Variacion de HRV durante la simulacion")
+    plt.xlabel("Tiempo (MM:SS)")
+    plt.ylabel("HRV (ms)")
+    plt.grid(True)
+
+    acummulated_hrv = 0
+    for i in range(resting_beats,len(hrv_y)):
+        acummulated_hrv += hrv_y[i]
+
+    average_hrv = int(acummulated_hrv/movement_beats)
+    print("HRV medio:",average_hrv)
+
     plt.show()
 
 
