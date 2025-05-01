@@ -215,7 +215,7 @@ def generate_ecg_one_minute_signal():
     rr_target = int(60000 / hr_target)
 
     # Se generan los latidos de transiccion
-    while rr - hrv < rr_target and accumulated_time < total_ecg_time:
+    while rr - hrv > rr_target and accumulated_time < total_ecg_time:
         rr -= hrv
         hrv = randint(hrv_min, hrv_max)
         beat, parcial_pos, time_beat_pos, r_pos = generate_ecg_rr_based(rr)  # Se calcula un solo latido con el que se generara todo el electrocardiograma
@@ -349,6 +349,7 @@ if __name__ == "__main__":
         tick_labels = [ms_to_min(t * 1000) for t in ticks]
         plt.xticks(ticks, tick_labels)
 
+
         # Titulo y etiquetas para cada dimensión
         plt.title("ECG Sintético de 1 Minuto")
         plt.xlabel("Tiempo (MM:SS)")
@@ -444,8 +445,6 @@ if __name__ == "__main__":
             start = 0
             total_ecg_time = 60000
 
-
-
             if total % 3 == 0:
                 # Se generan los latidos en movimiento de 1 min
                 rr = rr_target
@@ -455,7 +454,6 @@ if __name__ == "__main__":
                     hrv = choice([-hrv, hrv])
                     rr_aux = rr
                     rr += hrv
-
 
                     # Si el nuevo rr se encuentra entre el minimo y el maximo posible en cuanto al objetivo de rr, se crea el latido
                     if rr_target - fluctuation <= rr <= rr_target + fluctuation:
@@ -543,6 +541,13 @@ if __name__ == "__main__":
             ticks = np.arange(0, 61, 1)  # Etiquetas cada segundo, incluyendo 01:00(por eso se pone 61)
             tick_labels = [ms_to_min(t * 1000) for t in ticks]
             plt.xticks(ticks, tick_labels)
+            plt.yticks(np.arange(-1, 1.1, 0.2))
+
+            plt.grid(True, which='both', linestyle='--', linewidth=0.5)
+            plt.minorticks_on()
+            plt.gca().set_xticks(np.arange(0, 60.01, 0.04), minor=True)
+            plt.gca().set_yticks(np.arange(-1, 1.1, 0.1), minor=True)
+
 
             # Titulo y etiquetas para cada dimensión
             plt.title("ECG Sintético de 1 Minuto")
@@ -638,7 +643,7 @@ if __name__ == "__main__":
         ticks = np.arange(0, 61, 1)  # Etiquetas cada segundo, incluyendo 01:00(por eso se pone 61)
         tick_labels = [ms_to_min(t * 1000) for t in ticks]
         plt.xticks(ticks, tick_labels)
-        plt.yticks(np.arange(-1, 1.1, 0.2))  # Mayores cada 0.2 por ejemplo
+        plt.yticks(np.arange(-1, 1.1, 0.2))
 
         plt.grid(True, which='both', linestyle='--', linewidth=0.5)
         plt.minorticks_on()
